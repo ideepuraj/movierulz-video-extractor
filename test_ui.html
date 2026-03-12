@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Extractor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 30px; }
+        .container { max-width: 860px; margin: 0 auto; }
+        h1 { font-size: 24px; margin-bottom: 6px; }
+        p.sub { color: #888; font-size: 14px; margin-bottom: 24px; }
+        .row { display: flex; gap: 10px; margin-bottom: 20px; }
+        input {
+            flex: 1; padding: 14px; font-size: 15px;
+            background: #1e1e1e; border: 1px solid #444; border-radius: 6px;
+            color: #fff; outline: none;
+        }
+        input:focus { border-color: #e50914; }
+        button {
+            padding: 14px 22px; font-size: 15px; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer;
+        }
+        #btnExtract  { background: #e50914; color: #fff; }
+        #btnExtract:disabled { background: #555; cursor: not-allowed; }
+        #btnPlay     { background: #2196F3; color: #fff; display: none; }
+        #btnVLC      { background: #f90; color: #000; display: none; }
+
+        .spinner {
+            display: none; width: 36px; height: 36px; margin: 20px auto;
+            border: 4px solid rgba(255,255,255,0.1); border-radius: 50%;
+            border-top-color: #e50914; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .result-box {
+            display: none; background: #1e1e1e; border: 1px solid #333;
+            border-radius: 8px; padding: 20px; margin-bottom: 16px;
+        }
+        .result-box h3 { color: #4CAF50; font-size: 15px; margin-bottom: 12px; }
+        .url-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+        .url-value {
+            font-family: monospace; font-size: 12px; background: #111;
+            padding: 10px; border-radius: 4px; border: 1px solid #333;
+            word-break: break-all; color: #ccc; margin-bottom: 12px;
+        }
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        video { width: 100%; border-radius: 6px; background: #000; margin-top: 16px; display: none; }
+        .error { color: #e50914; padding: 12px; background: #1a0000; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🎬 Stream Extractor</h1>
+    <p class="sub">Paste a Movierulz movie URL to extract the ad-free HLS stream.</p>
+
+    <div class="row">
+        <input id="urlInput" type="text" placeholder="https://www.5movierulz.viajes/..." />
+        <button id="btnExtract" onclick="extract()">Extract</button>
+    </div>
+
+    <div class="spinner" id="spinner"></div>
+    <div id="errorBox" class="error" style="display:none"></div>
+
+    <div class="result-box" id="resultBox">
+        <h3>✅ Stream Extracted Successfully</h3>
+
+        <div class="url-label">Raw Stream URL (requires Referer header – use Proxy URL for playback)</div>
+        <div class="url-value" id="rawUrl"></div>
+
+        <div class="url-label">Proxy URL (works in any player – use this one)</div>
+        <div class="url-value" id="proxyUrl"></div>
+
+        <div class="btn-row">
+            <button id="btnVLC"  onclick="openVLC()">▶ Open in VLC</button>
+            <button id="btnPlay" onclick="togglePlayer()">▶ Play in Browser</button>
+        </div>
+
+        <video id="videoPlayer" controls></video>
+    </div>
+</div>
+
+<!-- hls.js loaded on demand -->
+<script>
+    let currentProxyUrl = null;
+    let hlsInstance = null;
+    let playerVisible = false;
+
+    async function extract() {
+        const url = document.getElementById("urlInput").value.trim();
+        if (!url) return;
+
+        // Reset UI
+        document.getElementById("errorBox").style.display = "none";
+        document.getElementById("resultBox").style.display = "none";
+        document.getElementById("videoPlayer").style.display = "none";
+        document.getElementById("btnPlay").style.display = "none";
+        document.getElementById("btnVLC").style.display  = "none";
+        document.getElementById("spinner").style.display = "block";
+        document.getElementById("btnExtract").disabled = true;
+
+        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+        playerVisible = false;
+
+        try {
+            const res  = await fetch("/api/extract", {
+                method:  "POST",
+                headers: {"Content-Type": "application/json"},
+                body:    JSON.stringify({url})
+            });
+            const data = await res.json();
+
+            if (!res.ok || data.error) throw new Error(data.error || "Unknown error");
+
+            currentProxyUrl = data.proxy_url;
+            document.getElementById("rawUrl").textContent   = data.raw_url;
+            document.getElementById("proxyUrl").textContent = data.proxy_url;
+            document.getElementById("resultBox").style.display = "block";
+            document.getElementById("btnPlay").style.display   = "inline-block";
+            document.getElementById("btnVLC").style.display    = "inline-block";
+
+        } catch (err) {
+            document.getElementById("errorBox").textContent = "Error: " + err.message;
+            document.getElementById("errorBox").style.display = "block";
+        } finally {
+            document.getElementById("spinner").style.display = "none";
+            document.getElementById("btnExtract").disabled = false;
+        }
+    }
+
+    function openVLC() {
+        if (!currentProxyUrl) return;
+        const stripped = currentProxyUrl.replace(/^https?:\/\//, "");
+        window.location.href = "vlc://" + stripped;
+    }
+
+    function togglePlayer() {
+        if (!currentProxyUrl) return;
+        const video = document.getElementById("videoPlayer");
+        playerVisible = !playerVisible;
+
+        if (!playerVisible) {
+            video.style.display = "none";
+            if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+            document.getElementById("btnPlay").textContent = "▶ Play in Browser";
+            return;
+        }
+
+        video.style.display = "block";
+        document.getElementById("btnPlay").textContent = "■ Stop Player";
+
+        // Load hls.js lazily
+        if (!window.Hls) {
+            const s = document.createElement("script");
+            s.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
+            s.onload = () => startHLS(video);
+            document.head.appendChild(s);
+        } else {
+            startHLS(video);
+        }
+    }
+
+    function startHLS(video) {
+        if (Hls.isSupported()) {
+            hlsInstance = new Hls();
+            hlsInstance.loadSource(currentProxyUrl);
+            hlsInstance.attachMedia(video);
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            video.src = currentProxyUrl;
+        }
+    }
+</script>
+</body>
+</html>
