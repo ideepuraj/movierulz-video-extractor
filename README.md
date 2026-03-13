@@ -23,13 +23,13 @@ A lightweight Python server that extracts direct, ad-free HLS video stream URLs 
 Movierulz Page URL
       │
       ▼
- extractor.py          — Scrapes iFrame player URLs from the movie page
+ url_extractor.py          — Scrapes iFrame player URLs from the movie page
       │
       ▼
    yt-dlp             — Resolves obfuscated iframe URL → raw .m3u8 HLS URL
       │
       ▼
-standalone_server.py   — Flask server with:
+url_proxy_server.py   — Flask server with:
  ├── /api/extract      — REST API to trigger extraction
  └── /api/proxy        — Transparent proxy that:
                           • Rewrites M3U8 playlist segment URLs
@@ -43,9 +43,9 @@ standalone_server.py   — Flask server with:
 
 | File | Description |
 |------|-------------|
-| `extractor.py` | Core extraction logic. Fetches the Movierulz page, finds the embedded player iframe URLs, and uses `yt-dlp` to resolve the raw `.m3u8` stream URL. |
-| `standalone_server.py` | Flask HTTP server exposing the REST API and the M3U8 proxy. |
-| `test_ui.html` | Simple browser-based test interface. Served at `http://localhost:8001/`. |
+| `url_extractor.py` | Core extraction logic. Fetches the Movierulz page, finds the embedded player iframe URLs, and uses `yt-dlp` to resolve the raw `.m3u8` stream URL. |
+| `url_proxy_server.py` | Flask HTTP server exposing the REST API and the M3U8 proxy. |
+| `web_ui.html` | Simple browser-based test interface. Served at `http://localhost:8001/`. |
 | `requirements.txt` | Python dependencies. |
 
 ---
@@ -78,14 +78,14 @@ pip install yt-dlp
 ### Run
 
 ```bash
-python standalone_server.py
+python url_proxy_server.py
 ```
 
 Server starts on **http://0.0.0.0:8001** by default.  
 Use the `PORT` environment variable to change the port:
 
 ```bash
-PORT=9000 python standalone_server.py
+PORT=9000 python url_proxy_server.py
 ```
 
 ---

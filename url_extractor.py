@@ -1,5 +1,5 @@
 """
-extractor.py — Movierulz Video URL Extractor
+url_extractor.py — Movierulz Video URL Extractor
 =============================================
 Fetches a Movierulz movie page, finds the embedded video player iframes,
 then uses yt-dlp to resolve the obfuscated iframe URL into a raw .m3u8 HLS
@@ -12,7 +12,7 @@ Usage as a library:
     # result = {"error": "some error message"}
 
 Usage from command line:
-    python extractor.py "https://www.5movierulz.viajes/..."
+    python url_extractor.py "https://www.5movierulz.viajes/..."
 """
 
 import os

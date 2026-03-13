@@ -1,5 +1,5 @@
 """
-standalone_server.py — Movierulz Stream Extractor & Proxy Server
+url_proxy_server.py — Movierulz Stream Extractor & Proxy Server
 =================================================================
 A self-contained Flask server that:
   1. Extracts ad-free video stream URLs from Movierulz movie pages
@@ -23,12 +23,12 @@ GET /api/proxy?url=<encoded url>
     ⚠ Not meant to be called directly — used by the proxy_url returned from /api/extract.
 
 GET /
-    Serves test_ui.html (web test interface)
+    Serves web_ui.html (web test interface)
 
 Run
 ---
     pip install flask requests yt-dlp
-    python standalone_server.py
+    python url_proxy_server.py
 """
 
 import os
@@ -38,7 +38,7 @@ import urllib.parse
 import requests as http_client
 from flask import Flask, request, jsonify, send_from_directory, Response
 
-from extractor import extract_video_url
+from url_extractor import extract_video_url
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -61,7 +61,7 @@ STREAM_HEADERS = {
 
 @app.route("/")
 def index():
-    return send_from_directory(BASE_DIR, "test_ui.html")
+    return send_from_directory(BASE_DIR, "web_ui.html")
 
 
 # ---------------------------------------------------------------------------
