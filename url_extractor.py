@@ -48,7 +48,7 @@ def extract_m3u8_url(iframe_url, referer):
         with requests.get(iframe_url, headers=headers, timeout=12) as resp:
             if resp.status_code != 200:
                 return {"error": f"HTTP {resp.status_code} from player"}
-            
+
             html = resp.text
 
             # --- Extraction Strategy 1: HTML5 Source Tag ---
@@ -84,13 +84,13 @@ def extract_with_ytdlp(iframe_url, movierulz_url):
     """
     A reference fallback function that uses the yt-dlp binary.
 
-    This works by calling an external program (yt-dlp) to handle the 
-    extraction. It is powerful but slow and requires the yt-dlp binary 
+    This works by calling an external program (yt-dlp) to handle the
+    extraction. It is powerful but slow and requires the yt-dlp binary
     to be present on the device storage.
     """
     # Use your existing logic to find the yt-dlp binary path
-    yt_dlp = _find_yt_dlp() 
-    
+    yt_dlp = _find_yt_dlp()
+
     print(f"[extractor] Trying yt-dlp on: {iframe_url}")
     try:
         result = subprocess.run(
@@ -104,14 +104,14 @@ def extract_with_ytdlp(iframe_url, movierulz_url):
             text=True,
             timeout=30
         )
-        
+
         # Check stdout for the extracted URL
         if result.stdout:
             for line in result.stdout.strip().split('\n'):
                 if line.startswith("http"):
                     print(f"[extractor] Extracted stream: {line}")
                     return {"success": True, "url": line}
-                    
+
         # If no URL was found in output
         return {"error": "yt-dlp returned no URL"}
 
