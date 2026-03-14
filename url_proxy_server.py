@@ -82,9 +82,9 @@ def proxy_stream():
     try:
         resp = http_client.get(url, headers=STREAM_HEADERS, timeout=30)
         content = resp.content
+        cors_headers = {"Access-Control-Allow-Origin": "*"}
 
         if content.startswith(b"#EXTM3U"):
-            # --- M3U8 Playlist: rewrite all segment URLs through this proxy ---
             text = content.decode("utf-8", errors="ignore")
             new_lines = []
             for line in text.split("\n"):
@@ -92,7 +92,6 @@ def proxy_stream():
                 if not line:
                     continue
                 if line.startswith("#"):
-                    # Rewrite any URI= attribute values (e.g. for encryption keys)
                     def rewrite_uri(m):
                         orig = m.group(1)
                         abs_uri = urllib.parse.urljoin(url, orig)
@@ -100,22 +99,20 @@ def proxy_stream():
                     line = re.sub(r'URI="([^"]+)"', rewrite_uri, line)
                     new_lines.append(line)
                 else:
-                    # Segment URL — make absolute then proxy it
                     new_lines.append(_proxy_url(urllib.parse.urljoin(url, line)))
 
-            return Response("\n".join(new_lines), mimetype="application/vnd.apple.mpegurl")
+            return Response("\n".join(new_lines), mimetype="application/vnd.apple.mpegurl", headers=cors_headers)
 
         elif content.startswith(b"\x89PNG\r\n\x1a\n"):
-            # --- TS chunk disguised as a PNG image: strip the fake header ---
-            # The host prepends a small PNG to bypass Cloudflare hot-link detection.
-            # Real MPEG-TS data starts at the first 0x47 sync byte with a valid
-            # 188-byte packet boundary.
-            content = _strip_png_header(content)
-            return Response(content, mimetype="video/MP2T")
+            stripped = _strip_png_header(content)
+            if stripped is not None:
+                return Response(stripped, mimetype="video/MP2T", headers=cors_headers)
+            else:
+                return Response(content, mimetype="application/octet-stream", headers=cors_headers)
 
         else:
-            # Plain TS chunk
-            return Response(content, mimetype="video/MP2T")
+            mime = "application/octet-stream" if len(content) == 16 else "video/MP2T"
+            return Response(content, mimetype=mime, headers=cors_headers)
 
     except Exception as e:
         print(f"[proxy] Error fetching {url}: {e}")
@@ -127,16 +124,24 @@ def _proxy_url(target_url):
     return request.host_url.rstrip("/") + "/api/proxy?url=" + urllib.parse.quote(target_url)
 
 
-def _strip_png_header(data: bytes) -> bytes:
+def _strip_png_header(data: bytes) -> bytes | None:
     """
     Strip the fake PNG header prepended to obfuscated .ts chunks.
-    Finds the first valid MPEG-TS sync byte (0x47) confirmed by a second
-    sync byte 188 bytes later, then slices from that offset.
+    Returns the TS data starting at the first valid MPEG-TS sync byte,
+    or None if no valid TS sync pattern is found (e.g. it's an AES key).
+    Uses 3 consecutive 188-byte-spaced sync bytes for confidence.
     """
-    for i in range(min(200, len(data) - 188)):
+    # Try strong 3-sync check first (most reliable)
+    limit3 = max(0, len(data) - 376)
+    for i in range(limit3):
+        if data[i] == 0x47 and data[i + 188] == 0x47 and data[i + 376] == 0x47:
+            return data[i:]
+    # Fall back to 2-sync check in case the content is short
+    limit2 = max(0, len(data) - 188)
+    for i in range(limit2):
         if data[i] == 0x47 and data[i + 188] == 0x47:
             return data[i:]
-    return data  # couldn't find sync — return as-is
+    return None  # no TS sync found
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +174,6 @@ def api_extract():
     if not url:
         return jsonify({"error": "Missing 'url' in request body"}), 400
 
-    print(f"[api] Extract request for: {url}")
     result = extract_video_url(url)
 
     if "error" in result:
@@ -188,7 +192,13 @@ def api_extract():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import logging
     port = int(os.environ.get("PORT", 8001))
+    debug = os.environ.get("DEBUG", "").lower() in ("1", "true")
+
+    if not debug:
+        logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
     print("=" * 60)
     print("  Movierulz Extractor & Proxy Server")
     print("=" * 60)

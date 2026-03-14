@@ -165,8 +165,31 @@
             hlsInstance = new Hls();
             hlsInstance.loadSource(currentProxyUrl);
             hlsInstance.attachMedia(video);
+            hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(() => {});
+            });
+            hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+                console.error("[hls] error", data.type, data.details, data);
+                if (!data.fatal) return;
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                    hlsInstance.startLoad();
+                } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                    hlsInstance.recoverMediaError();
+                } else {
+                    document.getElementById("errorBox").textContent =
+                        "Playback error: " + (data.details || data.type);
+                    document.getElementById("errorBox").style.display = "block";
+                }
+            });
+            video.addEventListener("error", () => {
+                const e = video.error;
+                console.error("[video] MediaError code=" + e?.code + " msg=" + e?.message);
+            });
         } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
             video.src = currentProxyUrl;
+            video.addEventListener("loadedmetadata", () => {
+                video.play().catch(() => {});
+            }, { once: true });
         }
     }
 </script>
