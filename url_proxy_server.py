@@ -27,7 +27,7 @@ GET /
 
 Run
 ---
-    pip install flask requests yt-dlp
+    pip install flask requests
     python url_proxy_server.py
 """
 

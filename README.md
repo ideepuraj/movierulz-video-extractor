@@ -23,10 +23,7 @@ A lightweight Python server that extracts direct, ad-free HLS video stream URLs 
 Movierulz Page URL
       │
       ▼
- url_extractor.py          — Scrapes iFrame player URLs from the movie page
-      │
-      ▼
-   yt-dlp             — Resolves obfuscated iframe URL → raw .m3u8 HLS URL
+ url_extractor.py          — Scrapes iFrame player URLs, extracts raw .m3u8 HLS URL
       │
       ▼
 url_proxy_server.py   — Flask server with:
@@ -43,7 +40,7 @@ url_proxy_server.py   — Flask server with:
 
 | File | Description |
 |------|-------------|
-| `url_extractor.py` | Core extraction logic. Fetches the Movierulz page, finds the embedded player iframe URLs, and uses `yt-dlp` to resolve the raw `.m3u8` stream URL. |
+| `url_extractor.py` | Core extraction logic. Fetches the Movierulz page, finds the embedded player iframe URLs, and extracts the raw `.m3u8` stream URL using native Python parsing. |
 | `url_proxy_server.py` | Flask HTTP server exposing the REST API and the M3U8 proxy. |
 | `web_ui.html` | Simple browser-based test interface. Served at `http://localhost:8001/`. |
 | `requirements.txt` | Python dependencies. |
@@ -70,9 +67,6 @@ source venv/bin/activate       # Linux/Mac
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Install yt-dlp binary into the venv
-pip install yt-dlp
 ```
 
 ### Run
